@@ -1,0 +1,200 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e3]: "DEBUG: App mounted"
+  - status [ref=e4]:
+    - generic [ref=e5]: App running
+    - generic [ref=e6]: "UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36"
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - link "Contact us" [ref=e10] [cursor=pointer]:
+        - /url: tel:tel:--
+        - img [ref=e11]
+      - navigation "Primary navigation" [ref=e13]:
+        - link "Mud & Meadows The Earthbound Sanctuary" [ref=e14] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e15]: Mud & Meadows
+          - generic [ref=e16]: The Earthbound Sanctuary
+        - generic [ref=e17]:
+          - link "Cottages" [ref=e18] [cursor=pointer]:
+            - /url: /cottages
+          - button "Programs" [ref=e20] [cursor=pointer]
+          - link "Dining" [ref=e21] [cursor=pointer]:
+            - /url: /dining
+          - link "Gallery" [ref=e22] [cursor=pointer]:
+            - /url: /gallery
+          - link "Packages" [ref=e23] [cursor=pointer]:
+            - /url: /packages
+          - link "Contact" [ref=e24] [cursor=pointer]:
+            - /url: /contact
+        - link "Booking" [ref=e26] [cursor=pointer]:
+          - /url: /booking
+          - button "Book Now" [ref=e27]
+    - main [ref=e28]:
+      - generic [ref=e30]:
+        - link "Back to Rooms" [ref=e31] [cursor=pointer]:
+          - /url: /rooms
+          - img [ref=e32]
+          - generic [ref=e34]: Back to Rooms
+        - heading "Complete Your Reservation" [level=1] [ref=e35]
+      - generic [ref=e38]:
+        - generic [ref=e40]:
+          - img [ref=e42]
+          - generic [ref=e44]: Select Dates
+        - generic [ref=e47]:
+          - img [ref=e49]
+          - generic [ref=e51]: Guest Details
+        - generic [ref=e54]:
+          - generic [ref=e55]: "3"
+          - generic [ref=e56]: Payment
+        - generic [ref=e59]:
+          - generic [ref=e60]: "4"
+          - generic [ref=e61]: Confirmation
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - heading "Payment Details" [level=2] [ref=e68]
+              - paragraph [ref=e69]: Your payment is secured with industry-standard encryption
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - img [ref=e72]
+                - generic [ref=e74]: Payment Method
+              - generic [ref=e75]:
+                - generic [ref=e76]:
+                  - generic [ref=e77]:
+                    - radio "Card" [checked] [ref=e78]
+                    - text: Card
+                  - generic [ref=e79]:
+                    - radio "UPI" [ref=e80]
+                    - text: UPI
+                - generic [ref=e81]:
+                  - generic [ref=e82]:
+                    - generic [ref=e83]: Card Number
+                    - textbox "1234 5678 9012 3456" [ref=e84]
+                  - generic [ref=e85]:
+                    - generic [ref=e86]:
+                      - generic [ref=e87]: Expiry Date
+                      - textbox "MM/YY" [ref=e88]
+                    - generic [ref=e89]:
+                      - generic [ref=e90]: CVV
+                      - textbox "123" [ref=e91]
+            - paragraph [ref=e92]:
+              - text: By completing this booking, you agree to our
+              - link "Terms & Conditions" [ref=e93] [cursor=pointer]:
+                - /url: /terms
+              - text: and
+              - link "Privacy Policy" [ref=e94] [cursor=pointer]:
+                - /url: /privacy
+              - text: .
+          - generic [ref=e95]:
+            - button "Back" [ref=e96] [cursor=pointer]
+            - button "Confirm & Pay" [active] [ref=e97] [cursor=pointer]
+        - generic [ref=e99]:
+          - heading "Booking Summary" [level=3] [ref=e100]
+          - generic [ref=e102]:
+            - generic [ref=e103]: 1 selection(s)
+            - generic [ref=e104]:
+              - img "Garden Suite" [ref=e110]
+              - generic [ref=e111]:
+                - generic [ref=e112]: Garden Suite
+                - generic [ref=e113]: 1 room(s)
+            - generic [ref=e114]: 2 Guests
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e117]: Check-in
+              - generic [ref=e118]: Dec 23, 2025
+            - generic [ref=e119]:
+              - generic [ref=e120]: Check-out
+              - generic [ref=e121]: Dec 24, 2025
+            - generic [ref=e122]:
+              - generic [ref=e123]: Duration
+              - generic [ref=e124]: 1 Night
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - generic [ref=e127]: ₹0 x 1 nights
+              - generic [ref=e128]: ₹120
+            - generic [ref=e129]:
+              - generic [ref=e130]: Taxes & fees (18%)
+              - generic [ref=e131]: ₹22
+          - generic [ref=e132]:
+            - generic [ref=e133]: Total
+            - generic [ref=e134]: ₹142
+    - contentinfo [ref=e135]:
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - generic [ref=e139]:
+            - heading "Resort" [level=3] [ref=e140]
+            - paragraph [ref=e141]: Himalayan Sanctuary
+          - paragraph
+          - generic [ref=e142]:
+            - link [ref=e143] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e144]
+            - link [ref=e147] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e148]
+            - link [ref=e150] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e151]
+        - generic [ref=e153]:
+          - heading "Explore" [level=4] [ref=e154]
+          - list [ref=e155]:
+            - listitem [ref=e156]:
+              - link "Cottages" [ref=e157] [cursor=pointer]:
+                - /url: /rooms
+            - listitem [ref=e158]:
+              - link "Wellness Programs" [ref=e159] [cursor=pointer]:
+                - /url: /programs/wellness
+            - listitem [ref=e160]:
+              - link "Spa Treatments" [ref=e161] [cursor=pointer]:
+                - /url: /programs/wellness
+            - listitem [ref=e162]:
+              - link "Dining" [ref=e163] [cursor=pointer]:
+                - /url: /dining
+            - listitem [ref=e164]:
+              - link "Gallery" [ref=e165] [cursor=pointer]:
+                - /url: /gallery
+        - generic [ref=e166]:
+          - heading "Wellness" [level=4] [ref=e167]
+          - list [ref=e168]:
+            - listitem [ref=e169]:
+              - link "Ayurveda" [ref=e170] [cursor=pointer]:
+                - /url: /wellness
+            - listitem [ref=e171]:
+              - link "Yoga & Meditation" [ref=e172] [cursor=pointer]:
+                - /url: /wellness
+            - listitem [ref=e173]:
+              - link "Spa Therapies" [ref=e174] [cursor=pointer]:
+                - /url: /wellness
+            - listitem [ref=e175]:
+              - link "Detox Programs" [ref=e176] [cursor=pointer]:
+                - /url: /wellness
+            - listitem [ref=e177]:
+              - link "Sound Healing" [ref=e178] [cursor=pointer]:
+                - /url: /wellness
+        - generic [ref=e179]:
+          - heading "Contact" [level=4] [ref=e180]
+          - list [ref=e181]:
+            - listitem [ref=e182]:
+              - img [ref=e183]
+            - listitem [ref=e186]:
+              - img [ref=e187]
+              - link:
+                - /url: "tel:"
+            - listitem [ref=e189]:
+              - img [ref=e190]
+              - link:
+                - /url: "mailto:"
+      - generic [ref=e197]:
+        - paragraph [ref=e198]: © 2025 Resort. All rights reserved.
+        - generic [ref=e199]:
+          - link "Privacy Policy" [ref=e200] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms & Conditions" [ref=e201] [cursor=pointer]:
+            - /url: /terms
+```

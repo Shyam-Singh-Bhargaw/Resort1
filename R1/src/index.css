@@ -1,0 +1,388 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Lato:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== LUXURY WELLNESS RESORT DESIGN SYSTEM ===== */
+/* Inspired by Ananda Spa, Sensei, Aman Resorts */
+
+@layer base {
+  :root {
+    /* Primary Palette - Nature & Wellness */
+    --background: 40 20% 98%;
+    --foreground: 30 10% 15%;
+
+    /* Card & Surface Colors */
+    --card: 40 25% 97%;
+    --card-foreground: 30 10% 15%;
+
+    --popover: 40 25% 99%;
+    --popover-foreground: 30 10% 15%;
+
+    /* Brand Colors - Soft Gold & Sage */
+    --primary: 38 45% 45%;
+    --primary-foreground: 40 20% 98%;
+
+    --secondary: 80 15% 85%;
+    --secondary-foreground: 30 15% 25%;
+
+    /* Muted & Subtle Tones */
+    --muted: 40 15% 92%;
+    --muted-foreground: 30 10% 45%;
+
+    /* Accent - Warm Gold */
+    --accent: 38 55% 50%;
+    --accent-foreground: 40 20% 98%;
+
+    /* Wellness Green */
+    --wellness: 145 25% 35%;
+    --wellness-foreground: 40 20% 98%;
+
+    /* Warm Beige */
+    --warm: 35 30% 90%;
+    --warm-foreground: 30 15% 20%;
+
+    /* Cream */
+    --cream: 45 30% 96%;
+    --cream-foreground: 30 10% 20%;
+
+    /* Sage */
+    --sage: 120 15% 75%;
+    --sage-foreground: 120 20% 20%;
+
+    /* Terracotta Accent */
+    --terracotta: 15 50% 55%;
+    --terracotta-foreground: 40 20% 98%;
+
+    /* System Colors */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 35 20% 88%;
+    --input: 35 20% 90%;
+    --ring: 38 45% 45%;
+
+    --radius: 0.375rem;
+
+    /* Luxury Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(30 20% 20% / 0.08);
+    --shadow-elegant: 0 8px 40px -8px hsl(30 20% 20% / 0.12);
+    --shadow-glow: 0 0 60px hsl(38 55% 50% / 0.15);
+
+    /* Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(38 55% 55%) 0%, hsl(35 45% 45%) 100%);
+    --gradient-sage: linear-gradient(180deg, hsl(120 15% 80%) 0%, hsl(120 20% 70%) 100%);
+    --gradient-warm: linear-gradient(180deg, hsl(40 25% 97%) 0%, hsl(35 30% 92%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(30 10% 15% / 0.3) 0%, hsl(30 10% 15% / 0.6) 100%);
+
+    /* Sidebar (Admin) */
+    --sidebar-background: 35 25% 12%;
+    --sidebar-foreground: 40 15% 90%;
+    --sidebar-primary: 38 55% 55%;
+    --sidebar-primary-foreground: 40 20% 98%;
+    --sidebar-accent: 35 20% 18%;
+    --sidebar-accent-foreground: 40 15% 90%;
+    --sidebar-border: 35 15% 20%;
+    --sidebar-ring: 38 55% 55%;
+  }
+
+  .dark {
+    --background: 30 15% 8%;
+    --foreground: 40 15% 92%;
+
+    --card: 30 15% 10%;
+    --card-foreground: 40 15% 92%;
+
+    --popover: 30 15% 10%;
+    --popover-foreground: 40 15% 92%;
+
+    --primary: 38 55% 55%;
+    --primary-foreground: 30 15% 8%;
+
+    --secondary: 30 12% 18%;
+    --secondary-foreground: 40 15% 85%;
+
+    --muted: 30 12% 15%;
+    --muted-foreground: 40 10% 55%;
+
+    --accent: 38 55% 50%;
+    --accent-foreground: 30 15% 8%;
+
+    --wellness: 145 25% 45%;
+    --wellness-foreground: 30 15% 8%;
+
+    --warm: 30 15% 15%;
+    --warm-foreground: 40 15% 90%;
+
+    --cream: 30 12% 12%;
+    --cream-foreground: 40 15% 90%;
+
+    --sage: 120 15% 35%;
+    --sage-foreground: 40 15% 92%;
+
+    --border: 30 12% 18%;
+    --input: 30 12% 18%;
+    --ring: 38 55% 55%;
+
+    --sidebar-background: 30 15% 6%;
+    --sidebar-foreground: 40 15% 90%;
+    --sidebar-primary: 38 55% 55%;
+    --sidebar-primary-foreground: 30 15% 8%;
+    --sidebar-accent: 30 12% 12%;
+    --sidebar-accent-foreground: 40 15% 90%;
+    --sidebar-border: 30 12% 15%;
+    --sidebar-ring: 38 55% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-medium tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl leading-tight;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl lg:text-5xl leading-tight;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl leading-snug;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl leading-snug;
+  }
+
+  p {
+    @apply font-sans leading-relaxed;
+  }
+}
+
+@layer components {
+  /* Luxury Button Variants */
+  .btn-luxury {
+    @apply relative overflow-hidden transition-all duration-500 ease-out;
+  }
+
+  .btn-luxury::before {
+    content: '';
+    @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700;
+  }
+
+  .btn-luxury:hover::before {
+    @apply translate-x-full;
+  }
+
+  /* Parallax Container */
+  .parallax-container {
+    @apply relative overflow-hidden;
+  }
+
+  /* Elegant Divider */
+  .divider-elegant {
+    @apply relative flex items-center justify-center py-8;
+  }
+
+  .divider-elegant::before,
+  .divider-elegant::after {
+    content: '';
+    @apply flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+
+  /* Card Hover Effect */
+  .card-luxury {
+    @apply relative bg-card rounded-lg overflow-hidden transition-all duration-500;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .card-luxury:hover {
+    box-shadow: var(--shadow-elegant);
+    @apply -translate-y-1;
+  }
+
+  /* Image Overlay */
+  .image-overlay {
+    @apply absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent;
+  }
+
+  /* Sticky Book Button Mobile */
+  .sticky-book-btn {
+    @apply fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/95 border-t border-border md:hidden;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  /* Section Padding */
+  .section-padding {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+
+  /* Container Padding */
+  .container-padding {
+    @apply px-4 md:px-6 lg:px-8;
+  }
+
+  /* Text Balance */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Fade In Animation */
+  .fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+    opacity: 0;
+  }
+
+  /* Hero title shadow for better legibility */
+  .hero-title {
+    text-shadow: 0 8px 24px rgba(0,0,0,0.36);
+    line-height: 0.95;
+  }
+
+  .shadow-glow {
+    box-shadow: 0 8px 28px rgba(30,20,10,0.12);
+  }
+
+  /* Stagger Children */
+  .stagger-children > * {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0.1s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.2s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.3s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.4s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.5s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.6s; }
+}
+
+@layer utilities {
+  /* Custom Scrollbar */
+  .scrollbar-luxury {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary)) transparent;
+  }
+
+  .scrollbar-luxury::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-luxury::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-luxury::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 3px;
+  }
+
+  .scrollbar-luxury::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+
+  /* Glass Effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  /* Gold Text */
+  .text-gold-gradient {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Hero Video/Image Styles */
+.hero-media {
+  @apply absolute inset-0 w-full h-full object-cover;
+}
+
+.hero-overlay {
+  background: var(--gradient-hero);
+}
+
+html, body, #root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: #fafafa;
+  color: #111;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}

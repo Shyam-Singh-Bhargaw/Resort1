@@ -21,6 +21,15 @@ async def get_all_accommodations(request: Request):
                 rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": acc.get("_id")}, {"accommodation_id": str(acc.get("_id"))}]})
                 rooms = await rooms_cursor.to_list(length=None)
                 acc_doc["rooms"] = [serialize_doc(r) for r in rooms]
+                # expose adult/child capacity fields for rooms
+                for r in acc_doc["rooms"]:
+                    try:
+                        if r.get("capacity_adults") is not None or r.get("capacity_children") is not None:
+                            r["capacity_adults"] = int(r.get("capacity_adults") or r.get("capacity") or r.get("sleeps") or 0)
+                            r["capacity_children"] = int(r.get("capacity_children") or 0)
+                            r["capacity"] = r["capacity_adults"] + r["capacity_children"]
+                    except Exception:
+                        pass
             except Exception:
                 acc_doc["rooms"] = []
             out.append(acc_doc)
@@ -44,6 +53,14 @@ async def get_accommodation(request: Request, accommodation_id: str):
         rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": accommodation.get("_id")}, {"accommodation_id": str(accommodation.get("_id"))}]})
         rooms = await rooms_cursor.to_list(length=None)
         out["rooms"] = [serialize_doc(r) for r in rooms]
+        for r in out["rooms"]:
+            try:
+                if r.get("capacity_adults") is not None or r.get("capacity_children") is not None:
+                    r["capacity_adults"] = int(r.get("capacity_adults") or r.get("capacity") or r.get("sleeps") or 0)
+                    r["capacity_children"] = int(r.get("capacity_children") or 0)
+                    r["capacity"] = r["capacity_adults"] + r["capacity_children"]
+            except Exception:
+                pass
     except Exception:
         out["rooms"] = []
     return out

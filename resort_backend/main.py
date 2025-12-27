@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 from dotenv import load_dotenv
 import os
+from datetime import datetime
 
 # Ensure .env is loaded before importing route modules so route-level
 # module-scope env reads (e.g. INTERNAL_API_KEY) pick up values.
@@ -48,6 +49,15 @@ async def lifespan(app: FastAPI):
                     # sync pymongo client
                     client.admin.command("ping")
                 logger.info("App startup: DB ping successful")
+                # Cleanup stale locks left from previous runs (best-effort)
+                try:
+                    db_handle = getattr(app.state, "db", None)
+                    if db_handle is not None:
+                        # Remove expired locks where expire_at < now
+                        await db_handle.locks.delete_many({"expire_at": {"$lt": datetime.utcnow()}})
+                        logger.info("Cleaned up stale locks on startup")
+                except Exception:
+                    logger.exception("Failed to cleanup stale locks on startup")
         except Exception:
             logger.exception("App startup: DB ping failed")
         # Fallback: if database not attached, try to create a client directly (helps local dev when connect_db didn't set globals)
@@ -126,6 +136,11 @@ app.include_router(extra_beds.router)
 # Expose extra beds under /api for frontend compatibility
 app.include_router(extra_beds.router, prefix="/api")
 app.include_router(programs.router)
+# Authentication routes
+from routes import auth
+app.include_router(auth.router)
+from routes import guests
+app.include_router(guests.router)
 # Mount navigation router under /api for frontend compatibility (some clients expect /api/navigation)
 app.include_router(navigation.router, prefix="/api")
 

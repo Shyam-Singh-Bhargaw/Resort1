@@ -1,0 +1,12 @@
+*.pyc
+__pycache__/
+.venv/
+.venv311/
+venv/
+node_modules/
+.pytest_cache/
+.DS_Store
+dist/
+build/
+.env
+resort_backend/uploads/

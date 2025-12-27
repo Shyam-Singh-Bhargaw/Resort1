@@ -70,13 +70,16 @@ const RoomsPage = () => {
       : categoryImages;
 
     return {
-      id: a.id ? String(a.id) : String(a.name || (a as any).title || '') .toLowerCase().replace(/\s+/g, "-"),
+        id: a.slug ? String(a.slug) : (a.id ? String(a.id) : String(a.name || (a as any).title || '').toLowerCase().replace(/\s+/g, "-")),
+        slug: a.slug || (a.id ? String(a.id) : undefined),
       name: a.name || (a as any).title || '',
       category: category,
       description: (a as any).description || "",
       shortDescription: ((a as any).description || "").slice(0, 140),
       basePrice: (a as any).price_per_night ?? (a as any).price ?? 0,
       maxGuests: (a as any).capacity ?? 2,
+      capacityAdults: (a as any).capacity_adults ?? ((a as any).capacity ?? 2),
+      capacityChildren: (a as any).capacity_children ?? 0,
       size: (a as any).size ?? 45,
       view: (a as any).view || "Mountain View",
       amenities: a.amenities || [],
@@ -254,14 +257,16 @@ const RoomsPage = () => {
         </div>
       </section>
       {openCottageId && (
-        <CottageDetailModal id={openCottageId} onClose={() => setOpenCottageId(null)} onBook={(id, extraBedId, extraBedQty) => {
-          // SPA navigation to booking with pre-selected cottage and optional extra bed selection
+        <CottageDetailModal id={openCottageId} onClose={() => setOpenCottageId(null)} onBook={(id, extraBedId, extraBedQty, adults, children) => {
+          // SPA navigation to booking with pre-selected cottage, guests, and optional extra bed
           const params = new URLSearchParams();
           params.set('room', String(id));
           if (extraBedId) {
             params.set('extraBedId', String(extraBedId));
             params.set('extraBedQty', String(extraBedQty || 1));
           }
+          if (typeof adults !== 'undefined') params.set('adults', String(adults));
+          if (typeof children !== 'undefined') params.set('children', String(children));
           const q = `?${params.toString()}`;
           navigate(`/booking${q}`);
         }} />
@@ -279,15 +284,17 @@ function RoomCard({ room, onOpen }: { room: Room; onOpen?: () => void }) {
     >
       {/* Image */}
       <div className="aspect-[4/3] overflow-hidden">
-        <OptimizedImage
-          src={(room.images && room.images.length > 0) ? room.images[0] : suiteImage}
-          srcSet={(room.images && room.images.length > 0) ? `${room.images[0]} 800w` : undefined}
-          loading="lazy"
-          decoding="async"
-          alt={room.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          fallbackQuery="rooms,luxury"
-        />
+        <Link to={`/rooms/${encodeURIComponent(room.id)}`} aria-label={`Open details for ${room.name}`}>
+          <OptimizedImage
+            src={(room.images && room.images.length > 0) ? room.images[0] : suiteImage}
+            srcSet={(room.images && room.images.length > 0) ? `${room.images[0]} 800w` : undefined}
+            loading="lazy"
+            decoding="async"
+            alt={room.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            fallbackQuery="rooms,luxury"
+          />
+        </Link>
         {room.featured && (
           <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-3 py-1 text-xs tracking-wider uppercase rounded">
             Featured
@@ -301,7 +308,7 @@ function RoomCard({ room, onOpen }: { room: Room; onOpen?: () => void }) {
           {room.category}
         </p>
         <h3 className="font-serif text-2xl font-medium mb-2 group-hover:text-primary transition-colors">
-          {room.name}
+          <Link to={`/rooms/${encodeURIComponent(room.id)}`} className="hover:underline">{room.name}</Link>
         </h3>
         <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
           {room.shortDescription}
@@ -315,7 +322,7 @@ function RoomCard({ room, onOpen }: { room: Room; onOpen?: () => void }) {
           </span>
           <span className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            {room.maxGuests} guests
+            {room.capacityAdults} adults{room.capacityChildren ? ` • ${room.capacityChildren} child${room.capacityChildren > 1 ? 'ren' : ''}` : ''}
           </span>
           <span className="flex items-center gap-1">
             <Eye className="h-4 w-4" />
@@ -332,7 +339,7 @@ function RoomCard({ room, onOpen }: { room: Room; onOpen?: () => void }) {
             <span className="text-muted-foreground text-sm"> / night</span>
           </div>
             <div className="flex items-center gap-2">
-              <Button variant="luxury" size="sm" onClick={(e:any) => { e.preventDefault(); navigate(`/booking?room=${encodeURIComponent(room.id)}`); }}>
+              <Button variant="luxury" size="sm" onClick={(e:any) => { e.preventDefault(); navigate(`/booking?room=${encodeURIComponent(room.id)}&adults=${encodeURIComponent(String(room.capacityAdults ?? room.maxGuests ?? 1))}&children=${encodeURIComponent(String(room.capacityChildren ?? 0))}`); }}>
                 Book
               </Button>
               <Button variant="outline" size="sm" onClick={(e:any) => { e.preventDefault(); onOpen && onOpen(); }}>

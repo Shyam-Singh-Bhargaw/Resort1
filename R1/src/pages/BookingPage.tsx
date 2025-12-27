@@ -302,9 +302,11 @@ import {
 import { cn } from "@/lib/utils";
 import suiteImage from "@/assets/luxury-suite.jpg";
 import OptimizedImage from "@/components/ui/OptimizedImage";
+import { apiClient } from "@/lib/api-client";
 import QuantityButton from "@/components/ui/QuantityButton";
 import { useAccommodations, useExperiences, useWellness, useCottages, useAllExtraBeds } from "@/hooks/useApi";
 import { useCreateApiBooking, useCreateGuestProfile, useSendBookingConfirmation, useCreateTransaction } from "@/hooks/useApiMutation";
+import { useToast } from '@/hooks/use-toast';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -369,6 +371,7 @@ type BookingFormData = {
   checkIn: string;
   checkOut: string;
   guests: number | string;
+  children?: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -382,6 +385,8 @@ type BookingFormData = {
 const BookingPage = () => {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("room");
+  const adultsParam = searchParams.get("adults");
+  const childrenParam = searchParams.get("children");
   const extraBedsParam = searchParams.get("extraBeds");
   const extraBedIdParam = searchParams.get("extraBedId");
   const extraBedQtyParam = searchParams.get("extraBedQty");
@@ -396,6 +401,7 @@ const BookingPage = () => {
   const { mutate: createGuestProfile } = useCreateGuestProfile();
   const { mutate: sendBookingConfirmation } = useSendBookingConfirmation();
   const { mutate: createTransaction } = useCreateTransaction();
+  const { toast } = useToast();
   
   const selectedRoom = (accommodations?.find((r: Accommodation) => String(r.id) === String(roomId)) || (accommodations && accommodations.length > 0 ? accommodations[0] : null)) || null;
   const getBasePrice = (r?: Accommodation) => r?.basePrice ?? r?.price_per_night ?? r?.price ?? 0;
@@ -431,7 +437,8 @@ const BookingPage = () => {
     checkIn: "",
     checkOut: "",
     // allow numeric or special 'entire' value
-    guests: 1 as number | string,
+    guests: adultsParam ? Number(adultsParam) : 1 as number | string,
+    children: childrenParam ? Number(childrenParam) : 0,
     firstName: "",
     lastName: "",
     email: "",
@@ -454,7 +461,7 @@ const BookingPage = () => {
     }
   }, [bookingData.checkIn, bookingData.checkOut]);
 
-  const totalGuests = React.useMemo(() => {
+    const totalGuests = React.useMemo(() => {
     return selectedCottages.reduce((sum, c) => {
       const cap = (() => {
         const info = (accommodations || []).find((x: Accommodation) => String(x.id) === String(c.id));
@@ -488,15 +495,17 @@ const BookingPage = () => {
   }, [selectedCottages, accommodations, nights, wellnessServices, selectedPrograms]);
 
   // Live capacity validation (updates whenever selection, accommodations or guest count changes)
-  React.useEffect(() => {
-    const guestsNeeded = typeof bookingData.guests === 'string' && bookingData.guests === 'entire' ? 1 : Number(bookingData.guests || 1);
+    React.useEffect(() => {
+    const guestsNeeded = (typeof bookingData.guests === 'string' && bookingData.guests === 'entire') ? 1 : Number(bookingData.guests || 0);
+    const children = Number(bookingData.children || 0);
+    const totalNeeded = guestsNeeded + children;
     const totalCap = (selectedCottages || []).reduce((s, sc) => {
       const cInfo = (accommodations || []).find((c: Accommodation) => String(c.id) === String(sc.id));
       const cap = Number(cInfo?.capacity || cInfo?.capacity_max || cInfo?.maxGuests || 1);
       const extra = sc.extraBed ? 1 : 0;
       return s + (sc.rooms || 0) * cap + extra;
     }, 0);
-    if (totalCap < guestsNeeded) {
+    if (totalCap < totalNeeded) {
       setCapacityOk(false);
       setCapacityMessage('⚠️ Selected rooms do not accommodate all guests. Please add more rooms or select another cottage.');
     } else {
@@ -518,7 +527,7 @@ const BookingPage = () => {
         alert('Please provide valid check-in and check-out dates (check-out must be after check-in).');
         return;
       }
-      if (!bookingData.guests) {
+      if (!bookingData.guests && !bookingData.children) {
         alert('Please select number of guests.');
         return;
       }
@@ -526,7 +535,9 @@ const BookingPage = () => {
       // If user hasn't manually selected cottages, perform auto-allocation per spec
       let localSelected = selectedCottages || [];
       if (!localSelected || localSelected.length === 0) {
-        const guestsNeededLocal = typeof bookingData.guests === 'string' && bookingData.guests === 'entire' ? 1 : Number(bookingData.guests || 1);
+        const guestsBase = (typeof bookingData.guests === 'string' && bookingData.guests === 'entire') ? 1 : Number(bookingData.guests || 0);
+        const childrenLocal = Number(bookingData.children || 0);
+        const guestsNeededLocal = guestsBase + childrenLocal || 1;
         const list = (accommodations || []).filter((c: Accommodation) => c.available !== false).map((c: Accommodation) => ({ id: c.id, cap: Number(c.capacity || c.capacity_max || c.maxGuests || 1) }));
         if (list.length > 0) {
           const best = list.sort((a, b) => b.cap - a.cap)[0];
@@ -612,14 +623,10 @@ const BookingPage = () => {
           return s + (found ? found.cap : 0);
         }, 0);
 
-        // If capacity still insufficient, auto-add rooms (do not auto-add cottages when user manually reduced earlier during flow)
+        // If capacity still insufficient, block booking — do NOT auto-add rooms per UX rules
         if (sum < guestsNeeded) {
-          const availableList = list.filter((c) => c.available && !cottagesToBook.includes(c.id)).sort((a, b) => b.cap - a.cap);
-          for (const c of availableList) {
-            cottagesToBook.push(c.id);
-            sum += c.cap;
-            if (sum >= guestsNeeded) break;
-          }
+          alert('Selected rooms do not accommodate all guests. Please add more rooms or select another cottage.');
+          return;
         }
 
         const totalAvailableExtras = (selectedCottages || []).reduce((s, sc) => {
@@ -646,6 +653,10 @@ const BookingPage = () => {
           }
         }
 
+        const adults = (typeof bookingData.guests === 'string' && bookingData.guests === 'entire') ? 1 : Number(bookingData.guests || 0);
+        const childrenCount = Number(bookingData.children || 0);
+        const totalGuestsPayload = adults + childrenCount || 1;
+
         const payload = {
           guest_name: `${bookingData.firstName} ${bookingData.lastName}`.trim(),
           guest_email: bookingData.email,
@@ -655,7 +666,9 @@ const BookingPage = () => {
           check_in: bookingData.checkIn,
           check_out: bookingData.checkOut,
           total_price: totalPrice,
-          guests: Number(bookingData.guests || 1),
+          guests: totalGuestsPayload,
+          adults: adults,
+          children: childrenCount,
           // include both a per-cottage mapping and a total qty for compatibility
           allow_extra_beds: totalRequestedExtraBeds > 0,
           extra_beds_qty: totalRequestedExtraBeds,
@@ -837,6 +850,65 @@ const BookingPage = () => {
                   accommodations={accommodations}
                   selectedCottages={selectedCottages}
                   setSelectedCottages={setSelectedCottages}
+                  onInlineLogin={async (email: string, password: string) => {
+                    // Attempt login; if user doesn't exist, create account then login
+                    try {
+                      const res: any = await apiClient.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+                      if (res && res.token) {
+                        try { localStorage.setItem('auth_token', res.token); } catch (e) {}
+                        // fetch user profile
+                        try {
+                          const me = await apiClient.request('/auth/me');
+                          if (me) {
+                            setBookingData(b => ({ ...b, firstName: me.first_name || me.firstName || b.firstName, lastName: me.last_name || me.lastName || b.lastName, email: me.email || b.email, phone: me.phone || b.phone }));
+                          }
+                        } catch (e) {}
+                        toast({ title: 'Signed in', description: 'You are now signed in.' });
+                        return true;
+                      }
+                    } catch (err: any) {
+                      // if login failed, try to register then login
+                      try {
+                        await apiClient.request('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, first_name: bookingData.firstName || undefined, last_name: bookingData.lastName || undefined }) });
+                        const res2: any = await apiClient.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+                        if (res2 && res2.token) {
+                          try { localStorage.setItem('auth_token', res2.token); } catch (e) {}
+                          try {
+                            const me = await apiClient.request('/auth/me');
+                            if (me) {
+                              setBookingData(b => ({ ...b, firstName: me.first_name || me.firstName || b.firstName, lastName: me.last_name || me.lastName || b.lastName, email: me.email || b.email, phone: me.phone || b.phone }));
+                            }
+                          } catch (e) {}
+                          toast({ title: 'Account created', description: 'Account created and signed in.' });
+                          return true;
+                        }
+                      } catch (regErr) {
+                        toast({ title: 'Sign in failed', description: 'Unable to sign in or create account.' });
+                        return false;
+                      }
+                    }
+                    toast({ title: 'Sign in failed', description: 'Unable to sign in with provided credentials.' });
+                    return false;
+                  }}
+                  onContinueAsGuest={async () => {
+                    try {
+                      const payload = { first_name: bookingData.firstName, last_name: bookingData.lastName, email: bookingData.email, phone: bookingData.phone };
+                      // use mutate hook if available
+                      try {
+                        const g = await createGuestProfile(payload as any);
+                        if (g) { toast({ title: 'Continuing as guest', description: 'Guest profile saved.' }); return true; }
+                      } catch (e) {
+                        // fallback to API client
+                        await apiClient.request('/guests/', { method: 'POST', body: JSON.stringify(payload) });
+                        toast({ title: 'Continuing as guest', description: 'Guest profile saved.' });
+                        return true;
+                      }
+                      return false;
+                    } catch (err) {
+                      toast({ title: 'Guest save failed', description: 'Could not save guest profile.' });
+                      return false;
+                    }
+                  }}
                 />
               )}
 
@@ -1107,11 +1179,60 @@ type StepGuestProps = {
   accommodations?: Accommodation[];
   selectedCottages: SelectedCottage[];
   setSelectedCottages: React.Dispatch<React.SetStateAction<SelectedCottage[]>>;
+  onInlineLogin?: (email: string, password: string) => Promise<boolean>;
+  onContinueAsGuest?: () => Promise<boolean>;
 };
 
-function StepGuest({ bookingData, setBookingData, accommodations, selectedCottages, setSelectedCottages }: StepGuestProps) {
+function StepGuest({ bookingData, setBookingData, accommodations, selectedCottages, setSelectedCottages, onInlineLogin, onContinueAsGuest }: StepGuestProps) {
+  const [showLogin, setShowLogin] = React.useState(false);
+  const [loginEmail, setLoginEmail] = React.useState('');
+  const [loginPassword, setLoginPassword] = React.useState('');
+  const [loginStatus, setLoginStatus] = React.useState<string | null>(null);
+  const tokenPresent = typeof window !== 'undefined' && !!localStorage.getItem('auth_token');
+  // resolve handlers from args via closure (access props via arguments)
+  const handlers = { onInlineLogin, onContinueAsGuest } as any;
   return (
     <div className="space-y-8">
+      {/* Inline login / guest options */}
+      {!tokenPresent && (
+        <div className="p-4 border rounded bg-muted">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">Have an account?</div>
+            <div className="flex gap-2">
+              <button className="px-3 py-1 text-sm border rounded" onClick={() => setShowLogin(s => !s)}>{showLogin ? 'Hide' : 'Sign in'}</button>
+              <button className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded" onClick={async () => {
+                setLoginStatus(null);
+                const ok = handlers.onContinueAsGuest ? await handlers.onContinueAsGuest() : false;
+                if (ok) setLoginStatus('Guest profile saved'); else setLoginStatus('Failed to save guest');
+              }}>Continue as guest</button>
+            </div>
+          </div>
+          {showLogin && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input type="email" placeholder="Email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="px-3 py-2 rounded border col-span-2" />
+              <input type="password" placeholder="Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="px-3 py-2 rounded border col-span-1" />
+              <div className="col-span-3 flex gap-2">
+                <button className="px-3 py-2 bg-primary text-primary-foreground rounded" onClick={async () => {
+                  setLoginStatus('Signing in...');
+                  try {
+                    const ok = handlers.onInlineLogin ? await handlers.onInlineLogin(loginEmail, loginPassword) : false;
+                    setLoginStatus(ok ? 'Signed in' : 'Sign in failed; account created if not existed');
+                    if (ok) {
+                      // prefill guest fields from profile
+                      try {
+                        const me = await apiClient.request('/auth/me');
+                        if (me) setBookingData(b => ({ ...b, firstName: me.first_name || me.firstName || b.firstName, lastName: me.last_name || me.lastName || b.lastName, email: me.email || b.email, phone: me.phone || b.phone }));
+                      } catch (e) {}
+                    }
+                  } catch (err) { setLoginStatus('Error during sign in'); }
+                }}>Sign in (creates account if none)</button>
+                <button className="px-3 py-2 border rounded" onClick={() => setShowLogin(false)}>Cancel</button>
+              </div>
+              {loginStatus && <div className="col-span-3 text-sm text-muted-foreground">{loginStatus}</div>}
+            </div>
+          )}
+        </div>
+      )}
       <div>
         <h2 className="font-serif text-2xl font-medium mb-2">
           Guest Information
@@ -1408,12 +1529,20 @@ function BookingSummary({ room, bookingData, selectedCottages, accommodations, w
                   </div>
                   <div>
                     <div className="font-medium">{c?.title || c?.name || sc.id}</div>
-                    <div className="text-sm text-muted-foreground">{sc.rooms} room(s){sc.extraBed ? ' • extra bed' : ''}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-muted-foreground">{sc.rooms} room(s){sc.extraBed ? ' • extra bed' : ''}</div>
+                      <span className="inline-block text-xs px-2 py-1 bg-muted rounded text-muted-foreground" title={`Per room capacity: ${(c?.capacity_adults ?? c?.capacity ?? c?.maxGuests ?? 0)} adults • ${(c?.capacity_children ?? 0)} children`}>
+                        {(c?.capacity_adults ?? c?.capacity ?? c?.maxGuests ?? 0)}a{(c?.capacity_children ?? 0) ? ` • ${c?.capacity_children}c` : ''}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
             })}
-            <div className="text-sm text-muted-foreground">{bookingData.guests} {bookingData.guests === 1 ? 'Guest' : 'Guests'}</div>
+            <div className="text-sm text-muted-foreground">
+              {typeof bookingData.guests !== 'undefined' ? `${bookingData.guests} adult${Number(bookingData.guests) === 1 ? '' : 's'}` : ''}
+              {typeof bookingData.children !== 'undefined' && bookingData.children > 0 ? ` • ${bookingData.children} child${bookingData.children > 1 ? 'ren' : ''}` : ''}
+            </div>
           </div>
         ) : (
             <div className="flex gap-4 items-center">

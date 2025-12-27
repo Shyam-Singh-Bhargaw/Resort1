@@ -1,9 +1,9 @@
+import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { useProgramsWellness } from "@/hooks/useApi";
-import { useAccommodation } from "@/hooks/useApi";
+import { useProgramsWellness, useCottage } from "@/hooks/useApi";
 import { Accommodation } from "@/types/api";
 import { 
   Users, Maximize, Eye, Check, ArrowLeft, 
@@ -26,24 +26,59 @@ const amenityIcons: Record<string, React.ComponentType<{ className?: string }>> 
 
 const RoomDetailPage = () => {
   const { id } = useParams();
-  const { data: accommodation, loading } = useAccommodation(id);
+  const { data: cottage, loading } = useCottage(id);
+  // Call wellness programs hook at top-level so hook order is stable
+  const { data: programsData } = useProgramsWellness();
 
-  const mapAccommodation = (a: Accommodation): Room => ({
+  const mapAccommodation = (a: any): Room => ({
     id: a.id || String(a.name).toLowerCase().replace(/\s+/g, "-"),
-    name: a.name,
-    category: "deluxe",
-    description: (a as any).description || "",
-    shortDescription: ((a as any).description || "").slice(0, 140),
-    basePrice: (a as any).price_per_night || 0,
-    maxGuests: (a as any).capacity || 2,
-    size: 45,
-    view: "Mountain View",
-    amenities: a.amenities || [],
-    images: a.images || [],
-    featured: (a as any).rating ? (a as any).rating >= 4.5 : false,
+    name: a.name || a.title || '',
+    category: a.category || "deluxe",
+    description: a.description || a.summary || "",
+    shortDescription: (a.description || "").slice(0, 140),
+    basePrice: a.price_per_night ?? a.pricePerNight ?? a.price ?? 0,
+    maxGuests: a.capacity ?? a.sleeps ?? 2,
+    size: a.sqm || a.size || 45,
+    view: a.view || "Mountain View",
+    amenities: a.amenities || a.features || [],
+    images: a.images || a.media || [],
+    featured: a.rating ? a.rating >= 4.5 : false,
   });
 
-  const room = accommodation ? mapAccommodation(accommodation as Accommodation) : null;
+  const room = cottage ? mapAccommodation(cottage as any) : null;
+
+  // SEO: set document title and meta description / OG tags for better indexing
+  React.useEffect(() => {
+    if (!room) return;
+    try {
+      const title = `${room.name} — Luxury Resort Rooms & Wellness`;
+      document.title = title;
+      let desc = room.shortDescription || room.description || 'Luxury rooms, wellness and detox retreats in Jamshedpur, Jharkhand.';
+      let meta = document.querySelector('meta[name="description"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'description');
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', desc);
+
+      // OpenGraph
+      let ogTitle = document.querySelector('meta[property="og:title"]');
+      if (!ogTitle) { ogTitle = document.createElement('meta'); ogTitle.setAttribute('property', 'og:title'); document.head.appendChild(ogTitle); }
+      ogTitle.setAttribute('content', title);
+      let ogDesc = document.querySelector('meta[property="og:description"]');
+      if (!ogDesc) { ogDesc = document.createElement('meta'); ogDesc.setAttribute('property', 'og:description'); document.head.appendChild(ogDesc); }
+      ogDesc.setAttribute('content', desc);
+
+      // canonical
+      let link = document.querySelector('link[rel="canonical"]');
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link); }
+      const canonical = window.location.href.split('#')[0].split('?')[0];
+      link.setAttribute('href', canonical);
+    } catch (e) {
+      // ignore DOM errors in SSR or tests
+    }
+  }, [room]);
 
   if (loading) {
     return (
@@ -69,8 +104,6 @@ const RoomDetailPage = () => {
       </Layout>
     );
   }
-
-  const { data: programsData } = useProgramsWellness();
   const allPrograms: any[] = Array.isArray(programsData) ? programsData : (programsData && programsData.items) || [];
   const relatedPrograms = allPrograms.filter((p) => p.featured).slice(0, 2);
 

@@ -60,6 +60,11 @@ class Booking(BaseModel):
     guest_email: str
     guest_phone: str
     accommodation_id: str
+    guests: Optional[int] = None
+    adults: Optional[int] = None
+    children: Optional[int] = None
+    allow_extra_beds: Optional[bool] = False
+    extra_beds_qty: Optional[int] = 0
     package_id: Optional[str] = None
     experience_ids: list[str] = []
     wellness_ids: list[str] = []

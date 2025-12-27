@@ -67,7 +67,26 @@ export function useCottages() {
  * Hook to fetch a single cottage by id
  */
 export function useCottage(id?: string) {
-  return useApi(() => (id ? apiClient.getCottage(id) : Promise.resolve(null)), null, [id]);
+  return useApi(
+    async () => {
+      if (!id) return null as any;
+      try {
+        return await apiClient.getCottage(id);
+      } catch (err: any) {
+        // If original lookup failed (not found), try name-based lookup
+        if (err && (err.status === 404 || err.status === 400)) {
+          try {
+            return await apiClient.getRoomByName(id);
+          } catch (err2: any) {
+            throw err; // rethrow original
+          }
+        }
+        throw err;
+      }
+    },
+    null,
+    [id]
+  );
 }
 
 /**

@@ -184,6 +184,10 @@ export class ApiClient {
     return res;
   }
 
+  async getRoomByName(name: string) {
+    return this.request(`/api/rooms/name/${encodeURIComponent(name)}`);
+  }
+
   // Extra bed endpoints
   async getAllExtraBeds() {
     return this.request('/extra-beds/');
@@ -328,9 +332,16 @@ export class ApiClient {
   }
 
   async createBooking(data: any) {
+    const headers: Record<string,string> = {};
+    // if a token is stored, include Authorization header
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch (e) {}
     return this.request('/bookings/', {
       method: 'POST',
       body: JSON.stringify(data),
+      headers,
     });
   }
 

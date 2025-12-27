@@ -104,9 +104,11 @@ function ExtraBeddingSection({ cottage, onSelectForBooking }: { cottage: any, on
   );
 }
 
-export default function CottageDetailModal({ id, onClose, onBook }: { id: string | null; onClose: () => void; onBook?: (id: string, extraBedId?: string | null, extraBedQty?: number) => void }) {
+export default function CottageDetailModal({ id, onClose, onBook }: { id: string | null; onClose: () => void; onBook?: (id: string, extraBedId?: string | null, extraBedQty?: number, adults?: number, children?: number) => void }) {
   const { data, loading, error } = useCottage(id || undefined);
   const [selectedExtraForBooking, setSelectedExtraForBooking] = useState<{ include: boolean; extraBedId?: string | null; qty?: number } | null>(null);
+  const [selectedAdults, setSelectedAdults] = useState<number>(1);
+  const [selectedChildren, setSelectedChildren] = useState<number>(0);
 
   if (!id) return null;
 
@@ -115,7 +117,6 @@ export default function CottageDetailModal({ id, onClose, onBook }: { id: string
       <div className="bg-card p-6 rounded shadow">Loading…</div>
     </div>
   );
-
   if (error) return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       <div className="bg-card p-6 rounded shadow">Error loading cottage.</div>
@@ -132,7 +133,12 @@ export default function CottageDetailModal({ id, onClose, onBook }: { id: string
         <div className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-serif text-2xl mb-2">{cottage.title || cottage.name}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-serif text-2xl mb-2">{cottage.title || cottage.name}</h2>
+                <span className="inline-block text-xs px-2 py-1 bg-muted rounded text-muted-foreground" title={`Capacity: ${(cottage.capacity_adults ?? cottage.capacity ?? 0)} adults • ${(cottage.capacity_children ?? 0)} children`}>
+                  {(cottage.capacity_adults ?? cottage.capacity ?? 0)}a{(cottage.capacity_children ?? 0) ? ` • ${cottage.capacity_children}c` : ''}
+                </span>
+              </div>
               <p className="text-sm text-muted-foreground">{cottage.description}</p>
             </div>
             <div>
@@ -189,6 +195,24 @@ export default function CottageDetailModal({ id, onClose, onBook }: { id: string
               <h3 className="font-medium mt-4 mb-2">Availability</h3>
               <p className="text-sm text-muted-foreground">{cottage.available ? 'Available' : 'Unavailable / Maintenance'}</p>
 
+              <div className="mt-4">
+                <h4 className="font-medium mb-2">Guests</h4>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm">Adults</label>
+                  <select value={selectedAdults} onChange={(e) => setSelectedAdults(Number(e.target.value))} className="p-1 rounded border">
+                    {Array.from({ length: Math.max(1, (cottage.capacity_adults ?? cottage.capacity ?? 2)) }).map((_, i) => (
+                      <option key={i+1} value={i+1}>{i+1}</option>
+                    ))}
+                  </select>
+                  <label className="text-sm">Children</label>
+                  <select value={selectedChildren} onChange={(e) => setSelectedChildren(Number(e.target.value))} className="p-1 rounded border">
+                    {Array.from({ length: Math.max(1, (cottage.capacity_children ?? 0) + 1) }).map((_, i) => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Per-room selection: if backend provides per-accommodation rooms, allow selecting a specific room */}
               {Array.isArray(cottage.rooms) && cottage.rooms.length > 0 ? (
                 <div className="mt-4">
@@ -226,7 +250,7 @@ export default function CottageDetailModal({ id, onClose, onBook }: { id: string
                     if (el && el.value) roomId = el.value;
                   } catch (err) { /* ignore DOM access errors */ }
                   const idToBook = roomId || cottage.id || cottage._id;
-                  if (onBook && idToBook) onBook(String(idToBook), selectedExtraForBooking?.extraBedId ?? null, selectedExtraForBooking?.qty ?? 0);
+                  if (onBook && idToBook) onBook(String(idToBook), selectedExtraForBooking?.extraBedId ?? null, selectedExtraForBooking?.qty ?? 0, selectedAdults, selectedChildren);
                 }}>Book This Cottage</Button>
                 <Button variant="outline" onClick={onClose}>Close</Button>
               </div>

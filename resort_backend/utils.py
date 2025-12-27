@@ -48,3 +48,23 @@ def serialize_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
     for k, v in list(out.items()):
         out[k] = _serialize_value(v)
     return out
+
+
+def hash_password(password: str) -> str:
+    # lightweight PBKDF2 password hashing to avoid extra deps
+    import hashlib, os, binascii
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return binascii.hexlify(salt).decode() + '$' + binascii.hexlify(dk).decode()
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        import hashlib, binascii
+        salt_hex, dk_hex = stored.split('$', 1)
+        salt = binascii.unhexlify(salt_hex)
+        dk = binascii.unhexlify(dk_hex)
+        new_dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+        return binascii.hexlify(new_dk).decode() == binascii.hexlify(dk).decode()
+    except Exception:
+        return False

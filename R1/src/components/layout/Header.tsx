@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSiteConfig } from "@/hooks/useApi";
 import { useNavigation } from "@/hooks/useApi";
+import { apiClient } from "@/lib/api-client";
+import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -13,6 +15,29 @@ export function Header() {
   const isHomePage = location.pathname === "/";
   const { data: navItems, loading: navLoading } = useNavigation();
   const { data: siteConfig } = useSiteConfig();
+  const [user, setUser] = useState<any | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Check for auth token and fetch profile for header display
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+        if (token) {
+          try {
+            const me = await apiClient.request('/auth/me');
+            if (mounted) setUser(me);
+          } catch (e) {
+            if (mounted) setUser(null);
+          }
+        }
+      } catch (e) {}
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Use API-provided navigation only; avoid in-repo fallback/sample navigation
   const filteredNav = Array.isArray(navItems) ? navItems.filter((item: any) => item.is_visible) : [];
@@ -202,6 +227,48 @@ export function Header() {
               Book Now
             </Button>
           </Link>
+          {/* Auth area */}
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(p => !p)}
+                className="flex items-center gap-2 px-2 py-1 rounded hover:opacity-90"
+                aria-haspopup="true"
+                aria-expanded={profileOpen}
+                title={`Signed in as ${user.first_name || user.email}`}
+              >
+                {/* Avatar circle with initials fallback */}
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
+                  {(user.first_name || user.last_name)
+                    ? `${(user.first_name || '').charAt(0)}${(user.last_name || '').charAt(0)}`.toUpperCase()
+                    : (user.email || '').charAt(0).toUpperCase()
+                  }
+                </div>
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-background border border-border rounded-md shadow-md z-50">
+                  <Link to="/my-bookings" onClick={() => setProfileOpen(false)} className="block px-4 py-2 text-sm hover:bg-muted">Bookings</Link>
+                  <Link to="/account" onClick={() => setProfileOpen(false)} className="block px-4 py-2 text-sm hover:bg-muted">Account</Link>
+                  <button
+                    onClick={() => {
+                      try { localStorage.removeItem('auth_token'); } catch (e) {}
+                      setUser(null);
+                      setProfileOpen(false);
+                      toast({ title: 'Signed out', description: 'You have been signed out.' });
+                      navigate('/');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-muted border-t border-border"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link to="/login" className="text-sm">Sign in</Link>
+            </div>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -273,6 +340,16 @@ export function Header() {
               Book Now
             </Button>
           </Link>
+          <div className="mt-4">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Link to="/my-bookings" onClick={() => setIsMobileMenuOpen(false)} className="block py-2">My Bookings</Link>
+                <button onClick={() => { try { localStorage.removeItem('auth_token'); } catch(e){}; setUser(null); setIsMobileMenuOpen(false); toast({ title: 'Signed out', description: 'You have been signed out.' }); navigate('/'); }} className="block py-2">Logout</button>
+              </div>
+            ) : (
+              <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block py-2">Sign in</Link>
+            )}
+          </div>
         </div>
       </div>
     </header>

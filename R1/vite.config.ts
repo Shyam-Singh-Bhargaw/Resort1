@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     open: true,
     strictPort: false,
     proxy: {
-      '/api': 'http://localhost:8000'
+      '/api': 'http://localhost:8080'
     }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

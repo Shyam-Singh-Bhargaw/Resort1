@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 class BookingRequest(BaseModel):
     guest_name: str
     guest_email: str
-    guests: int
+    guests: Optional[int] = None
+    adults: Optional[int] = None
+    children: Optional[int] = None
     check_in: str
     check_out: str
     guest_phone: Optional[str] = None
@@ -45,6 +47,21 @@ def _room_capacity(room: dict, allow_extra_beds: bool) -> int:
     cap = 0
     if room is None:
         return 0
+    # Prefer explicit adults/children capacity fields if present
+    try:
+        if "capacity_adults" in room or "capacity_children" in room:
+            a = int(room.get("capacity_adults") or 0)
+            c = int(room.get("capacity_children") or 0)
+            cap = a + c
+            if allow_extra_beds:
+                eb = room.get("extra_beds") if room.get("extra_beds") is not None else room.get("extra_bedding")
+                try:
+                    cap += int(eb) if eb is not None else 0
+                except Exception:
+                    cap += 0
+            return cap
+    except Exception:
+        pass
     if "capacity" in room and isinstance(room["capacity"], int):
         cap = room["capacity"]
     elif "sleeps" in room and isinstance(room["sleeps"], int):
@@ -125,158 +142,6 @@ def allocate_rooms(candidates, guests: int, allow_extra_beds: bool = False, pref
     return picked
 
 
-@router.post("/bookings")
-async def api_create_booking(request: Request, booking: BookingRequest):
-    """Compatibility endpoint: create a booking using the simplified BookingRequest shape.
-    Allocates rooms if not provided, computes pricing including optional extra beds,
-    and inserts a booking document into `bookings` collection returning the created record.
-    """
-    db = get_db_or_503(request)
-    # Parse dates
-    try:
-        ci = datetime.strptime(booking.check_in, "%Y-%m-%d")
-        co = datetime.strptime(booking.check_out, "%Y-%m-%d")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid date format; use YYYY-MM-DD")
-
-    nights = max(0, (co - ci).days)
-    guests_needed = int(booking.guests or 0)
-
-    # Determine allocated cottages / rooms
-    allocated = []
-    if booking.selected_cottages:
-        allocated = list(booking.selected_cottages)
-    else:
-        # fetch candidates from rooms collection
-        try:
-            rooms = await db["rooms"].find().to_list(None)
-        except Exception:
-            raise HTTPException(status_code=500, detail="Failed to query rooms for allocation")
-        allocated = allocate_rooms(rooms, guests_needed, booking.allow_extra_beds, booking.preferred_room_types)
-
-    # Normalize ids to ObjectId when possible
-    alloc_obj_ids = []
-    for a in allocated:
-        try:
-            alloc_obj_ids.append(ObjectId(a))
-        except Exception:
-            # if not an ObjectId-like string, keep as-is
-            alloc_obj_ids.append(a)
-
-    # Compute price subtotal from room docs
-    subtotal = 0.0
-    room_snapshots = []
-    try:
-        for rid in alloc_obj_ids:
-            # support both ObjectId and raw id strings
-            q = {"_id": rid} if isinstance(rid, ObjectId) else {"_id": ObjectId(rid)} if isinstance(rid, str) and ObjectId.is_valid(rid) else {"_id": rid}
-            room = await db["rooms"].find_one(q)
-            if not room:
-                # try matching by string id field
-                room = await db["rooms"].find_one({"id": str(rid)})
-            if not room:
-                continue
-            price = room.get("price_per_night") or room.get("price") or room.get("pricePerNight") or 0
-            try:
-                price_val = float(price)
-            except Exception:
-                price_val = 0.0
-            subtotal += price_val * max(1, nights)
-            room_snapshots.append({"room_id": serialize_doc(room).get("id") or str(room.get("_id")), "price_per_night": price_val})
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to compute room pricing")
-
-    # Handle extra beds allocation and pricing
-    extra_beds_requested = int(booking.extra_beds_qty or 0)
-    extra_beds_assigned = []
-    extra_total = 0.0
-
-    # If a specific extraBedId was provided (compatibility), prefer that allocation
-    if booking.extraBedId and int(booking.extraBedQuantity or 0) > 0:
-        # Try to find the extra bed document
-        try:
-            eb_q = {"_id": ObjectId(booking.extraBedId)} if ObjectId.is_valid(str(booking.extraBedId)) else {"_id": booking.extraBedId}
-            eb_doc = await db["extra_bed"].find_one(eb_q)
-        except Exception:
-            eb_doc = await db["extra_bed"].find_one({"id": str(booking.extraBedId)})
-
-        if eb_doc:
-            try:
-                eb_price_val = float(eb_doc.get("price") or eb_doc.get("pricePerNight") or eb_doc.get("price_per_night") or 0)
-            except Exception:
-                eb_price_val = 0.0
-            qty = int(booking.extraBedQuantity or 0)
-            extra_total = eb_price_val * qty * max(1, nights)
-            extra_beds_assigned.append({"extra_bed_id": serialize_doc(eb_doc).get("id") or str(eb_doc.get("_id")), "price_per_night": eb_price_val, "quantity": qty})
-            # reflect in requested count
-            extra_beds_requested = max(extra_beds_requested, qty)
-    else:
-        # Default behavior: assign up to one extra bed per allocated room, respecting availability
-        if extra_beds_requested > 0 and alloc_obj_ids:
-            remaining = extra_beds_requested
-            # Iterate allocated rooms and attach one extra bed where available
-            for rid in alloc_obj_ids:
-                if remaining <= 0:
-                    break
-                q = {"_id": rid} if isinstance(rid, ObjectId) else {"_id": ObjectId(rid)} if isinstance(rid, str) and ObjectId.is_valid(rid) else {"_id": rid}
-                room = await db["rooms"].find_one(q)
-                if not room:
-                    continue
-                avail = room.get("extra_beds") if room.get("extra_beds") is not None else room.get("extra_bedding")
-                if avail is None:
-                    # assume 1 available if field missing
-                    avail = 1
-                try:
-                    avail_n = int(avail)
-                except Exception:
-                    avail_n = 0
-                if avail_n <= 0:
-                    continue
-                # assign one extra bed
-                eb_price = room.get("extra_bedding_price") or room.get("extra_bed_price") or 0
-                try:
-                    eb_price_val = float(eb_price)
-                except Exception:
-                    eb_price_val = 0.0
-                extra_total += eb_price_val * max(1, nights)
-                extra_beds_assigned.append({"room_id": serialize_doc(room).get("id") or str(room.get("_id")), "price_per_night": eb_price_val, "quantity": 1})
-                remaining -= 1
-
-    total_price = subtotal + extra_total
-
-    booking_doc = {
-        "guest_name": booking.guest_name,
-        "guest_email": booking.guest_email,
-        "guest_phone": booking.guest_phone,
-        "guests": booking.guests,
-        "check_in": ci,
-        "check_out": co,
-        "nights": nights,
-        "allocated_cottages": alloc_obj_ids,
-        "room_snapshot": room_snapshots,
-        "allow_extra_beds": bool(booking.allow_extra_beds),
-        "extra_beds_qty": extra_beds_requested,
-        "extra_beds_assigned": extra_beds_assigned,
-        "total_price": total_price,
-        "status": "pending",
-        "reference": gen_reference(),
-        "created_at": datetime.utcnow(),
-    }
-
-    try:
-        result = await db["bookings"].insert_one(booking_doc)
-        created = await db["bookings"].find_one({"_id": result.inserted_id})
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to create booking")
-
-    out = serialize_doc(created)
-    try:
-        publish_event({"event": "bookings.created", "booking_id": out.get("id"), "guest_email": out.get("guest_email")})
-    except Exception:
-        pass
-    return out
-
-
 @router.get("/site/site-config.js")
 async def site_config_js():
     config = {"apiBase": "/api", "siteName": "Resort"}
@@ -334,7 +199,12 @@ async def cottages_list(request: Request, page: int = 1, limit: int = 20, tags: 
             out["price_per_night"] = out.get("price")
         if out.get("images") is None and out.get("media") is not None:
             out["images"] = out.get("media")
-        if out.get("capacity") is None and out.get("sleeps") is not None:
+        # expose explicit adult/child capacity when available
+        if out.get("capacity_adults") is not None or out.get("capacity_children") is not None:
+            out["capacity_adults"] = out.get("capacity_adults") if out.get("capacity_adults") is not None else (out.get("capacity") or out.get("sleeps") or 0)
+            out["capacity_children"] = out.get("capacity_children") if out.get("capacity_children") is not None else 0
+            out["capacity"] = int(out.get("capacity_adults") or 0) + int(out.get("capacity_children") or 0)
+        elif out.get("capacity") is None and out.get("sleeps") is not None:
             out["capacity"] = out.get("sleeps")
         if out.get("available") is None:
             out["available"] = True
@@ -347,31 +217,7 @@ async def cottages_list(request: Request, page: int = 1, limit: int = 20, tags: 
     return {"page": page, "limit": limit, "total": total, "items": out_items}
 
 
-@router.get("/cottages/{cottage_id}")
-async def cottages_get(request: Request, cottage_id: str):
-    db = get_db_or_503(request)
-    # Return a single room document from `rooms` collection by id
-    try:
-        doc = await db["rooms"].find_one({"_id": ObjectId(cottage_id)})
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid id")
-    if not doc:
-        raise HTTPException(status_code=404, detail="Not found")
-    out = serialize_doc(doc)
-    if out.get("pricePerNight") is not None and out.get("price_per_night") is None:
-        out["price_per_night"] = out.get("pricePerNight")
-    if out.get("price") is not None and out.get("price_per_night") is None:
-        out["price_per_night"] = out.get("price")
-    if out.get("images") is None and out.get("media") is not None:
-        out["images"] = out.get("media")
-    if out.get("capacity") is None and out.get("sleeps") is not None:
-        out["capacity"] = out.get("sleeps")
-    if out.get("available") is None:
-        out["available"] = True
-    # admin-controlled extra bed flags (compatibility mapping)
-    out["extraBedAllowed"] = out.get("extraBedAllowed") or out.get("extra_bed_allowed") or False
-    out["allowedExtraBedIds"] = out.get("allowedExtraBedIds") or out.get("allowed_extra_bed_ids") or out.get("allowedExtraBeds") or None
-    return out
+# NOTE: cottages lookup was unified below. Earlier duplicate handler removed.
 
 
 @router.get("/dining")
@@ -493,6 +339,50 @@ async def programs_list(request: Request):
     return combined
 
 
+
+@router.get('/sitemap.xml')
+async def sitemap_xml(request: Request):
+    """Dynamic sitemap generated from accommodations and rooms collections."""
+    db = get_db_or_503(request)
+    frontend = os.environ.get('FRONTEND_URL') or str(request.base_url).rstrip('/')
+    urls = []
+    try:
+        accs = await db['accommodations'].find().to_list(length=None)
+        for a in accs:
+            s = a.get('slug') or a.get('id') or (str(a.get('_id')) if a.get('_id') else None)
+            if s:
+                urls.append(f"{frontend}/rooms/{s}")
+    except Exception:
+        pass
+    try:
+        rooms = await db['rooms'].find().to_list(length=None)
+        for r in rooms:
+            s = r.get('slug') or r.get('id') or (str(r.get('_id')) if r.get('_id') else None)
+            if s:
+                urls.append(f"{frontend}/rooms/{s}")
+    except Exception:
+        pass
+
+    # dedupe preserving order
+    seen = set()
+    unique = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            unique.append(u)
+
+    xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in unique:
+        xml_parts.append('  <url>')
+        xml_parts.append(f'    <loc>{u}</loc>')
+        xml_parts.append('    <changefreq>weekly</changefreq>')
+        xml_parts.append('    <priority>0.8</priority>')
+        xml_parts.append('  </url>')
+    xml_parts.append('</urlset>')
+    from fastapi.responses import Response
+    return Response('\n'.join(xml_parts), media_type='application/xml')
+
+
 @router.get("/programs/wellness")
 async def programs_wellness(request: Request):
     db = get_db_or_503(request)
@@ -571,27 +461,191 @@ async def programs_wellness(request: Request):
 @router.get("/cottages/{cottage_id}")
 async def cottages_get(request: Request, cottage_id: str):
     db = get_db_or_503(request)
+    doc = None
+
+    async def find_in_collection(coll_name: str):
+        try:
+            if cottage_id and ObjectId.is_valid(cottage_id):
+                try:
+                    d = await db[coll_name].find_one({"_id": ObjectId(cottage_id)})
+                    if d:
+                        return d
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        try:
+            d = await db[coll_name].find_one({"slug": cottage_id})
+            if d:
+                return d
+        except Exception:
+            pass
+        try:
+            d = await db[coll_name].find_one({"id": cottage_id})
+            if d:
+                return d
+        except Exception:
+            pass
+        try:
+            d = await db[coll_name].find_one({"name": {"$regex": f"^{cottage_id}$", "$options": "i"}})
+            if d:
+                return d
+        except Exception:
+            pass
+        return None
+
+    # Prefer deriving data from `rooms` collection.
+    # First, try to find a room that matches the provided id/slug/name.
+    room_q = None
     try:
-        doc = await db["accommodations"].find_one({"_id": ObjectId(cottage_id)})
+        if cottage_id and ObjectId.is_valid(cottage_id):
+            room_q = {"_id": ObjectId(cottage_id)}
+            room = await db["rooms"].find_one(room_q)
+            if room:
+                out = serialize_doc(room)
+                return out
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid id")
+        pass
+
+    # Try matching room by slug/id/name
+    try:
+        room = await db["rooms"].find_one({"slug": cottage_id})
+        if room:
+            return serialize_doc(room)
+    except Exception:
+        pass
+    try:
+        room = await db["rooms"].find_one({"id": cottage_id})
+        if room:
+            return serialize_doc(room)
+    except Exception:
+        pass
+    try:
+        room = await db["rooms"].find_one({"name": {"$regex": f"^{cottage_id}$", "$options": "i"}})
+        if room:
+            return serialize_doc(room)
+    except Exception:
+        pass
+
+    # If no single room matched, see if there are rooms that belong to an accommodation
+    try:
+        # try by accommodation_id equal to ObjectId or string
+        rooms_by_acc = []
+        if ObjectId.is_valid(cottage_id):
+            rooms_by_acc = await db["rooms"].find({"accommodation_id": ObjectId(cottage_id)}).to_list(length=None)
+        if not rooms_by_acc:
+            rooms_by_acc = await db["rooms"].find({"accommodation_id": str(cottage_id)}).to_list(length=None)
+        # also try rooms where accommodation slug/id stored in room fields
+        if not rooms_by_acc:
+            rooms_by_acc = await db["rooms"].find({"$or": [{"accommodation_slug": cottage_id}, {"accommodation_id": cottage_id}]}).to_list(length=None)
+        if rooms_by_acc:
+            # build accommodation-like response from rooms
+            rooms_out = [serialize_doc(r) for r in rooms_by_acc]
+            first = rooms_out[0] if len(rooms_out) > 0 else {}
+            acc = {
+                "id": first.get("accommodation_id") or cottage_id,
+                "slug": first.get("accommodation_slug") or cottage_id,
+                "name": first.get("accommodation_name") or first.get("name") or f"Accommodation {cottage_id}",
+                "rooms": rooms_out
+            }
+            return acc
+    except Exception:
+        pass
+
+    # Fallback: legacy accommodations collection
+    doc = await find_in_collection("accommodations")
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
+
     out = serialize_doc(doc)
-    # Do not synthesize rooms here. If there are no per-cottage room docs,
-    # return an empty rooms array so the frontend can reliably detect absence
-    # of per-accommodation rooms and avoid using generated/dummy data.
     if not out.get("rooms"):
         out["rooms"] = []
-    # attach related rooms for this cottage's accommodation (override synthesized rooms only if DB has related room docs)
     try:
-        rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": doc.get("_id")}, {"accommodation_id": str(doc.get("_id"))}]})
+        rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": out.get("_id")}, {"accommodation_id": str(out.get("_id"))}]})
         rooms = await rooms_cursor.to_list(length=None)
         if rooms:
             out["rooms"] = [serialize_doc(r) for r in rooms]
     except Exception:
         pass
     return out
+
+
+@router.get("/rooms/name/{room_name}")
+async def rooms_get_by_name(request: Request, room_name: str):
+    db = get_db_or_503(request)
+    # try combined $or lookup to match name, slug, id, or _id
+    query = {
+        "$or": [
+            {"name": {"$regex": f"^{re.escape(room_name)}$", "$options": "i"}},
+            {"slug": room_name},
+            {"id": room_name},
+            {"_id": room_name}
+        ]
+    }
+    try:
+        doc = await db["rooms"].find_one(query)
+    except Exception:
+        doc = None
+
+    if not doc:
+        # try accommodations fallback where an accommodation matches the slug/id/name
+        try:
+            acc = await db["accommodations"].find_one({"$or": [{"slug": room_name}, {"id": room_name}, {"name": {"$regex": f"^{re.escape(room_name)}$", "$options": "i"}}]})
+        except Exception:
+            acc = None
+        if acc:
+            a = serialize_doc(acc)
+            try:
+                rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": acc.get("_id")}, {"accommodation_id": str(acc.get("_id"))}]})
+                rooms = await rooms_cursor.to_list(length=None)
+                a["rooms"] = [serialize_doc(r) for r in rooms] if rooms else []
+            except Exception:
+                a.setdefault("rooms", [])
+            return a
+        raise HTTPException(status_code=404, detail="Not found")
+
+    out = serialize_doc(doc)
+    if out.get("pricePerNight") is not None and out.get("price_per_night") is None:
+        out["price_per_night"] = out.get("pricePerNight")
+    if out.get("price") is not None and out.get("price_per_night") is None:
+        out["price_per_night"] = out.get("price")
+    if out.get("images") is None and out.get("media") is not None:
+        out["images"] = out.get("media")
+    if out.get("capacity") is None and out.get("sleeps") is not None:
+        out["capacity"] = out.get("sleeps")
+    if out.get("available") is None:
+        out["available"] = True
+    out["extraBedAllowed"] = out.get("extraBedAllowed") or out.get("extra_bed_allowed") or False
+    out["allowedExtraBedIds"] = out.get("allowedExtraBedIds") or out.get("allowed_extra_bed_ids") or out.get("allowedExtraBeds") or None
+    return out
+
+    # If not found in rooms, try accommodations collection (some datasets store items there)
+    try:
+        acc = await db["accommodations"].find_one({"$or": [
+            {"slug": room_name},
+            {"id": room_name},
+            {"name": {"$regex": f"^{room_name}$", "$options": "i"}}
+        ]})
+    except Exception:
+        acc = None
+
+    if acc:
+        # normalize accommodation document to a room-like response the frontend expects
+        a = serialize_doc(acc)
+        # attach any per-accommodation rooms
+        try:
+            rooms_cursor = db["rooms"].find({"$or": [{"accommodation_id": acc.get("_id")}, {"accommodation_id": str(acc.get("_id"))}]})
+            rooms = await rooms_cursor.to_list(length=None)
+            if rooms:
+                a["rooms"] = [serialize_doc(r) for r in rooms]
+            else:
+                a.setdefault("rooms", [])
+        except Exception:
+            a.setdefault("rooms", [])
+        return a
+
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 @router.get("/dining")
@@ -793,6 +847,45 @@ async def debug_room(request: Request, room_id: str):
     # try searching by name fragment
     docs = await db["rooms"].find({"name": {"$regex": room_id, "$options": "i"}}).to_list(length=5)
     return {"found": False, "tried": tried, "matches": [serialize_doc(d) for d in docs]}
+
+
+@router.get("/rooms/name-debug/{room_name}")
+async def rooms_name_debug(request: Request, room_name: str):
+    """Debug helper: return room document using several lookup strategies (name/slug/id/_id/accommodation)."""
+    db = get_db_or_503(request)
+    # try direct id field
+    try:
+        doc = await db["rooms"].find_one({"id": room_name})
+        if doc:
+            return {"found": True, "method": "id", "doc": serialize_doc(doc)}
+    except Exception:
+        pass
+    # try slug
+    try:
+        doc = await db["rooms"].find_one({"slug": room_name})
+        if doc:
+            return {"found": True, "method": "slug", "doc": serialize_doc(doc)}
+    except Exception:
+        pass
+    # try name regex
+    try:
+        doc = await db["rooms"].find_one({"name": {"$regex": f"^{re.escape(room_name)}$", "$options": "i"}})
+        if doc:
+            return {"found": True, "method": "name", "doc": serialize_doc(doc)}
+    except Exception:
+        pass
+    # try accommodation lookup
+    try:
+        acc = await db["accommodations"].find_one({"$or": [{"slug": room_name}, {"id": room_name}, {"name": {"$regex": f"^{re.escape(room_name)}$", "$options": "i"}}]})
+    except Exception:
+        acc = None
+    if acc:
+        try:
+            rooms = await db["rooms"].find({"$or": [{"accommodation_id": acc.get("_id")}, {"accommodation_id": str(acc.get("_id"))}]}).to_list(length=None)
+            return {"found": True, "method": "accommodation", "acc": serialize_doc(acc), "rooms": [serialize_doc(r) for r in rooms]}
+        except Exception:
+            pass
+    return {"found": False}
 
 
 @router.get("/_debug/counts")

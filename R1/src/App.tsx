@@ -14,6 +14,9 @@ const ProgramsWellnessPage = React.lazy(() => import("./pages/ProgramsWellnessPa
 const ProgramsActivitiesPage = React.lazy(() => import("./pages/ProgramsActivitiesPage"));
 const DiningPage = React.lazy(() => import("./pages/DiningPage"));
 const BookingPage = React.lazy(() => import("./pages/BookingPage"));
+const LoginPage = React.lazy(() => import("./pages/LoginPage"));
+const AuthComplete = React.lazy(() => import("./pages/AuthComplete"));
+const MyBookingsPage = React.lazy(() => import("./pages/MyBookingsPage"));
 const ContactPage = React.lazy(() => import("./pages/ContactPage"));
 const GalleryPage = React.lazy(() => import("./pages/GalleryPage"));
 const PackagesPage = React.lazy(() => import("./pages/PackagesPage"));
@@ -157,6 +160,9 @@ const App = () => {
                   <Route path="/gallery" element={<GalleryPage />} />
                   <Route path="/packages" element={<PackagesPage />} />
                   <Route path="/booking" element={<BookingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/auth/complete" element={<AuthComplete />} />
+                  <Route path="/my-bookings" element={<MyBookingsPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   {/* Admin routes removed from customer-facing frontend */}
                   <Route path="*" element={<NotFound />} />

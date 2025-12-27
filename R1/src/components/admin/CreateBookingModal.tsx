@@ -14,6 +14,8 @@ export function CreateBookingModal({ open, onOpenChange }: { open: boolean; onOp
 
   const [guestName, setGuestName] = useState("");
   const [roomId, setRoomId] = useState<string | undefined>(undefined);
+  const [adults, setAdults] = useState<number>(1);
+  const [children, setChildren] = useState<number>(0);
   const [checkIn, setCheckIn] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -40,12 +42,15 @@ export function CreateBookingModal({ open, onOpenChange }: { open: boolean; onOp
     }
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         guest_name: guestName,
         room_id: roomId,
         check_in: checkIn,
         status: "pending",
       };
+      // include adults/children if provided
+      if (typeof adults === 'number') payload.adults = adults;
+      if (typeof children === 'number') payload.children = children;
 
       const res: any = await createBooking(payload as any);
       if (res && res.id) {
@@ -102,6 +107,17 @@ export function CreateBookingModal({ open, onOpenChange }: { open: boolean; onOp
               ))}
             </select>
             {fieldErrors['room_id'] && <p className="text-xs text-destructive mt-1">{fieldErrors['room_id'][0]}</p>}
+          </div>
+
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">Adults</label>
+              <input type="number" min={1} value={adults} onChange={(e) => setAdults(Number(e.target.value || 1))} className="w-full px-3 py-2 border border-border rounded bg-muted" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">Children</label>
+              <input type="number" min={0} value={children} onChange={(e) => setChildren(Number(e.target.value || 0))} className="w-full px-3 py-2 border border-border rounded bg-muted" />
+            </div>
           </div>
 
           <div>
